@@ -1,28 +1,30 @@
 <template>
   <ion-page>
-    <ion-header :translucent="true">
-      <ion-toolbar>
-        <ion-title>Blank</ion-title>
-      </ion-toolbar>
+    <ion-header>
+      <ion-toolbar> <ion-title> My Photo Gallery</ion-title></ion-toolbar>
     </ion-header>
-
-    <ion-content :fullscreen="true">
-      <ion-header collapse="condense">
-        <ion-toolbar>
-          <ion-title size="large">Blank</ion-title>
-        </ion-toolbar>
-      </ion-header>
-
-      <div id="container">
-        <strong>Ready to create an app?</strong>
-        <p>Start with Ionic <a target="_blank" rel="noopener noreferrer" href="https://ionicframework.com/docs/components">UI Components</a></p>
-      </div>
+    <ion-content class ="ion-padding">
+      <CameraComponent @photo-captured="addPhoto" />
+      <PhotoGalleryComponent :photos="photos" />
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { IonContent, IonHeader, IonPage, IonTitle, IonToolbar } from '@ionic/vue';
+import {
+  IonPage,
+  IonHeader,
+  IonToolbar,
+  IonTitle,
+  IonContent,
+} from "@ionic/vue";
+import { ref } from "vue";
+import CameraComponent from "@/components/CameraComponent.vue";
+import PhotoGalleryComponent from "@/components/PhotoGalleryComponent.vue";
+const photos = ref<string[]>([]);
+const addPhoto = (photo: string) => {
+  photos.value.unshift(photo);
+}
 </script>
 
 <style scoped>
