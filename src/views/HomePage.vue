@@ -1,10 +1,13 @@
 <template>
   <ion-page>
     <ion-header>
-      <ion-toolbar> <ion-title> My Photo Gallery</ion-title></ion-toolbar>
+      <ion-toolbar> 
+        <ion-title>My Photo Gallery</ion-title>
+      </ion-toolbar>
     </ion-header>
-    <ion-content class ="ion-padding">
-      <CameraComponent @photo-captured="addPhoto" />
+    <ion-content class="ion-padding">
+      <!-- Changed @photo-captured to @photoCaptured to match the emit name inside your component -->
+      <CameraComponent @photoCaptured="addPhoto" />
       <PhotoGalleryComponent :photos="photos" />
     </ion-content>
   </ion-page>
@@ -21,16 +24,17 @@ import {
 import { ref } from "vue";
 import CameraComponent from "@/components/CameraComponent.vue";
 import PhotoGalleryComponent from "@/components/PhotoGalleryComponent.vue";
+
 const photos = ref<string[]>([]);
+
 const addPhoto = (photo: string) => {
   photos.value.unshift(photo);
-}
+};
 </script>
 
 <style scoped>
 #container {
   text-align: center;
-  
   position: absolute;
   left: 0;
   right: 0;
@@ -46,9 +50,7 @@ const addPhoto = (photo: string) => {
 #container p {
   font-size: 16px;
   line-height: 22px;
-  
   color: #8c8c8c;
-  
   margin: 0;
 }
 
