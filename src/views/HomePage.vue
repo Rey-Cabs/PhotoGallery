@@ -2,13 +2,23 @@
   <ion-page>
     <ion-header>
       <ion-toolbar> 
-        <ion-title>My Photo Gallery</ion-title>
+        <ion-title>{{ isCameraActive ? 'Capture Image' : 'My Photo Gallery' }}</ion-title>
       </ion-toolbar>
     </ion-header>
     <ion-content class="ion-padding">
-      <!-- Changed @photo-captured to @photoCaptured to match the emit name inside your component -->
-      <CameraComponent @photoCaptured="addPhoto" />
-      <PhotoGalleryComponent :photos="photos" />
+      
+      <!-- Camera management block segment -->
+      <CameraComponent 
+        @photoCaptured="addPhoto" 
+        @cameraStatusChange="updateCameraStatus"
+      />
+      
+      <!-- Section Toggle: Only render the gallery component when camera visibility is false -->
+      <PhotoGalleryComponent 
+        v-if="!isCameraActive" 
+        :photos="photos" 
+      />
+
     </ion-content>
   </ion-page>
 </template>
@@ -26,35 +36,18 @@ import CameraComponent from "@/components/CameraComponent.vue";
 import PhotoGalleryComponent from "@/components/PhotoGalleryComponent.vue";
 
 const photos = ref<string[]>([]);
+const isCameraActive = ref(false);
 
 const addPhoto = (photo: string) => {
   photos.value.unshift(photo);
 };
+
+// Track section toggle changes from camera component child triggers
+const updateCameraStatus = (isOpen: boolean) => {
+  isCameraActive.value = isOpen;
+};
 </script>
 
 <style scoped>
-#container {
-  text-align: center;
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-#container strong {
-  font-size: 20px;
-  line-height: 26px;
-}
-
-#container p {
-  font-size: 16px;
-  line-height: 22px;
-  color: #8c8c8c;
-  margin: 0;
-}
-
-#container a {
-  text-decoration: none;
-}
+/* Scoped styles remain clean since structure handles conditional layout displays */
 </style>

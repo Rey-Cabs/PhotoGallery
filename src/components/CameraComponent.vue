@@ -1,9 +1,5 @@
 <template>
-    <ion-card>
-        <ion-card-header>
-            <ion-card-title>Camera</ion-card-title>
-        </ion-card-header>
-
+    <ion-card class="camera-card">
         <ion-card-content>
             <!-- Viewfinder container wraps the video stream and overlays -->
             <div v-if="isCameraOpen" class="camera-viewport">
@@ -20,13 +16,22 @@
                     <div class="hud-corners"></div>
                     <div class="hud-rec-indicator">
                         <span class="red-dot"></span>
-                        <span class="rec-text">LIVE</span>
+                        <span class="rec-text">LIVE ({{ currentFacingMode === 'user' ? 'FRONT' : 'BACK' }})</span>
                     </div>
                     <div class="hud-crosshair">
                         <div class="cross-x"></div>
                         <div class="cross-y"></div>
                     </div>
                 </div>
+
+                <!-- Floating Flip Camera Button over the Viewfinder -->
+                <ion-button
+                    fill="clear"
+                    class="flip-btn"
+                    @click="toggleCameraFacing"
+                >
+                    <ion-icon slot="icon-only" :icon="cameraReverseIcon" />
+                </ion-button>
             </div>
 
             <canvas
@@ -46,19 +51,21 @@
             <ion-button
                 v-if="isCameraOpen"
                 expand="block"
+                color="success"
                 @click="takePicture"
             >
                 <ion-icon slot="start" :icon="cameraIcon" />
-                Take Picture
+                Capture Photo
             </ion-button>
 
             <ion-button
                 v-if="isCameraOpen"
                 expand="block"
                 fill="outline"
+                color="danger"
                 @click="closeCamera"
             >
-                Close Camera
+                Cancel & Return
             </ion-button>
 
             <ion-text v-if="errorMessage" color="danger">
@@ -73,22 +80,22 @@ import {
     IonButton,
     IonCard,
     IonCardContent,
-    IonCardHeader,
-    IonCardTitle,
     IonIcon,
     IonText,
 } from "@ionic/vue";
 
-import { camera as cameraIcon } from "ionicons/icons";
+import { camera as cameraIcon, cameraReverse as cameraReverseIcon } from "ionicons/icons";
 import { ref, nextTick, onUnmounted } from "vue";
 import { Camera } from "@capacitor/camera";
 
 const emit = defineEmits<{
     (event: "photoCaptured", photo: string): void;
+    (event: "cameraStatusChange", isOpen: boolean): void;
 }>();
 
 const errorMessage = ref("");
 const isCameraOpen = ref(false);
+const currentFacingMode = ref<"user" | "environment">("user");
 
 const videoElement = ref<HTMLVideoElement | null>(null);
 const canvasElement = ref<HTMLCanvasElement | null>(null);
@@ -119,9 +126,14 @@ const openCamera = async () => {
     }
 
     try {
+        // If an existing stream exists, kill its active tracks before requesting a new one
+        if (stream) {
+            stream.getTracks().forEach((track) => track.stop());
+        }
+
         stream = await navigator.mediaDevices.getUserMedia({
             video: {
-                facingMode: "user",
+                facingMode: currentFacingMode.value,
                 width: { ideal: 1280 },
                 height: { ideal: 720 },
             },
@@ -129,6 +141,7 @@ const openCamera = async () => {
         });
 
         isCameraOpen.value = true;
+        emit("cameraStatusChange", true);
 
         await nextTick();
 
@@ -138,7 +151,16 @@ const openCamera = async () => {
         }
     } catch (error) {
         console.error("Camera error:", error);
-        errorMessage.value = "Unable to access camera. Please allow camera permission.";
+        errorMessage.value = "Unable to access camera hardware.";
+    }
+};
+
+// Toggle handler to cycle back and front camera setups
+const toggleCameraFacing = async () => {
+    currentFacingMode.value = currentFacingMode.value === "user" ? "environment" : "user";
+    // Instantly reopen device capture channels with the updated parameters
+    if (isCameraOpen.value) {
+        await openCamera();
     }
 };
 
@@ -151,7 +173,7 @@ const takePicture = () => {
     const canvas = canvasElement.value;
 
     if (video.videoWidth === 0 || video.videoHeight === 0) {
-        errorMessage.value = "Camera is not ready yet.";
+        errorMessage.value = "Camera feed stream not synchronized yet.";
         return;
     }
 
@@ -160,13 +182,18 @@ const takePicture = () => {
 
     const context = canvas.getContext("2d");
     if (!context) {
-        errorMessage.value = "Unable to capture photo.";
+        errorMessage.value = "Unable to render canvas frames.";
         return;
     }
 
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     const photo = canvas.toDataURL("image/jpeg", 0.9);
+    
+    // Emit payload up to homepage
     emit("photoCaptured", photo);
+    
+    // Close up camera hardware pipeline automatically
+    closeCamera();
 };
 
 const closeCamera = () => {
@@ -175,6 +202,7 @@ const closeCamera = () => {
         stream = null;
     }
     isCameraOpen.value = false;
+    emit("cameraStatusChange", false);
 };
 
 onUnmounted(() => {
@@ -183,26 +211,46 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Viewport positioning layout */
+.camera-card {
+    margin: 0;
+    box-shadow: none;
+    background: transparent;
+}
+
 .camera-viewport {
     position: relative;
     width: 100%;
-    border-radius: 10px;
+    border-radius: 16px;
     overflow: hidden;
-    margin-bottom: 12px;
+    margin-bottom: 16px;
     background: #000;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
 .camera-preview {
     display: block;
     width: 100%;
     height: auto;
-    min-height: 300px;
+    min-height: 380px;
     object-fit: cover;
 }
 
 .hidden-canvas {
     display: none;
+}
+
+/* Flip Camera Button Overlay styling */
+.flip-btn {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    --background: rgba(0, 0, 0, 0.6);
+    --color: #ffffff;
+    --border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    backdrop-filter: blur(4px);
+    z-index: 10;
 }
 
 /* HUD Overlay Styles */
@@ -212,31 +260,29 @@ onUnmounted(() => {
     left: 0;
     width: 100%;
     height: 100%;
-    pointer-events: none; /* Allows click actions to bypass graphic layers */
+    pointer-events: none;
     box-sizing: border-box;
-    padding: 15px;
 }
 
-/* Border frame bracket framing */
 .hud-corners {
     position: absolute;
-    top: 10px;
-    left: 10px;
-    right: 10px;
-    bottom: 10px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
+    top: 16px;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    border: 1.5px solid rgba(255, 255, 255, 0.25);
+    border-radius: 8px;
 }
 
-/* Live Recording Dot Design */
 .hud-rec-indicator {
     position: absolute;
-    top: 20px;
-    left: 20px;
+    top: 24px;
+    left: 24px;
     display: flex;
     align-items: center;
-    background: rgba(0, 0, 0, 0.5);
-    padding: 4px 8px;
-    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.55);
+    padding: 4px 10px;
+    border-radius: 20px;
 }
 
 .red-dot {
@@ -250,20 +296,19 @@ onUnmounted(() => {
 
 .rec-text {
     color: #fff;
-    font-size: 11px;
-    font-weight: bold;
+    font-size: 10px;
+    font-weight: 700;
     letter-spacing: 1px;
 }
 
-/* Center Capture Target Crosshair */
 .hud-crosshair {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
     transform: translate(-50%, -50%);
-    opacity: 0.6;
+    opacity: 0.5;
 }
 
 .cross-x, .cross-y {
@@ -272,18 +317,17 @@ onUnmounted(() => {
 }
 
 .cross-x {
-    top: 9px;
+    top: 11px;
     left: 0;
-    width: 20px;
-    height: 20px;
-    border-top: 2px solid white;
+    width: 24px;
+    height: 2px;
 }
 
 .cross-y {
-    left: 9px;
+    left: 11px;
     top: 0;
-    height: 20px;
-    border-left: 2px solid white;
+    width: 2px;
+    height: 24px;
 }
 
 @keyframes blink {
